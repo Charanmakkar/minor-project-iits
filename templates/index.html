@@ -3,174 +3,110 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>DC motor control</title>
+  <title>Two-motor robot control</title>
   <style>
-    :root { color-scheme: light; font: 17px/1.5 system-ui, sans-serif; color: #1c2939; background: #eef2f6; }
+    :root { color-scheme: light; font: 16px/1.5 system-ui, sans-serif; color: #183046; background: #edf2f7; }
     * { box-sizing: border-box; }
-    body { margin: 0; padding: 32px 16px; }
-    main { max-width: 600px; margin: auto; background: white; padding: 28px; border-radius: 18px; box-shadow: 0 12px 36px #192c4410; }
-    h1 { margin: 0 0 8px; font-size: 1.8rem; }
-    p { margin: 10px 0 20px; }
-    .mode { display: inline-block; border-radius: 5px; background: #e7efff; padding: 3px 10px; font-size: .85rem; }
-    .status { margin: 24px 0; padding: 18px; background: #f1f5f9; border-radius: 10px; }
-    #state { display: block; font-size: 1.35rem; }
-    #reason, .hint { font-size: .88rem; color: #4b5c71; }
+    body { margin: 0; padding: 32px 18px; }
+    main { max-width: 1080px; margin: auto; }
+    header { margin-bottom: 24px; }
+    h1 { margin: 10px 0 5px; font-size: clamp(1.8rem, 4vw, 2.5rem); line-height: 1.2; }
+    h2 { margin: 0 0 8px; font-size: 1.2rem; }
+    p { margin: 8px 0 16px; }
+    .tag { display: inline-block; padding: 4px 10px; border-radius: 5px; background: #dae7fa; color: #204d85; font-size: .8rem; font-weight: 700; }
+    .muted, .hint { color: #52697b; }
+    .hint { font-size: .85rem; }
+    .layout { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+    .card { min-width: 0; padding: 26px; background: #fff; border: 1px solid #dce5ee; border-radius: 18px; box-shadow: 0 7px 24px #203a5810; }
+    .eyebrow { text-transform: uppercase; letter-spacing: .1em; font-size: .73rem; font-weight: 750; color: #52697b; }
+    .virtual { padding: 20px 0 10px; text-align: center; border-bottom: 1px solid #e4ebf1; margin-bottom: 22px; }
+    .virtual-number { font-size: 5rem; line-height: 1; letter-spacing: -.065em; font-weight: 750; color: #245dcc; }
+    .unit { font-size: 1.1rem; color: #52697b; margin-left: 6px; }
+    .virtual p { margin: 9px 0; }
+    .control { margin-top: 23px; }
+    .label-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
     label { font-weight: 650; }
-    input { display: block; width: 100%; margin: 20px 0 8px; accent-color: #245dcc; }
-    .buttons { display: flex; gap: 12px; margin-top: 22px; }
-    button { border: 0; border-radius: 9px; min-height: 52px; padding: 12px; font: inherit; font-weight: 650; cursor: pointer; }
-    .run { flex: 1; color: white; background: #245dcc; }
+    output { font-variant-numeric: tabular-nums; }
+    input[type=range] { width: 100%; display: block; margin: 15px 0 6px; accent-color: #245dcc; min-height: 30px; cursor: pointer; }
+    .ends { display: flex; justify-content: space-between; color: #687f90; font-size: .77rem; }
+    .preview { padding: 11px 13px; background: #f0f5fb; border-radius: 8px; margin-top: 20px; font-size: .85rem; }
+    .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 20px; }
+    button { border: 0; border-radius: 9px; min-height: 54px; padding: 12px; font: inherit; font-weight: 700; cursor: pointer; }
+    #start { color: white; background: #245dcc; }
+    #stop { color: white; background: #b4232c; }
     button:disabled { opacity: .45; cursor: not-allowed; }
-    #stop { width: 100%; background: #b4232c; color: white; margin-top: 12px; }
-    #error { color: #a51b25; min-height: 1.5em; margin-bottom: 0; }
-    .hint:last-child { margin-bottom: 0; }
+    .status { border-bottom: 1px solid #e4ebf1; padding-bottom: 17px; min-height: 99px; }
+    #state { display: block; font-size: 1.35rem; margin-bottom: 5px; }
+    #reason { display: block; font-size: .86rem; color: #52697b; }
+    .robot { width: 100%; height: auto; display: block; max-height: 320px; }
+    .wheel-label { font-size: 15px; fill: #52697b; font-family: system-ui, sans-serif; }
+    .illustration-label { text-align: center; margin: 0 0 16px; font-size: .85rem; color: #52697b; }
+    .pwm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+    .pwm-value { display: block; font-size: 1.5rem; font-weight: 700; }
+    progress { width: 100%; height: 12px; display: block; margin: 8px 0; accent-color: #245dcc; }
+    #error { color: #a51b25; min-height: 1.5em; margin: 15px 0 0; font-size: .88rem; }
+    .safety { padding: 18px 5px; max-width: 920px; }
+    @media (max-width: 760px) { body { padding: 20px 12px; } .layout { grid-template-columns: 1fr; } .card { padding: 21px; } .virtual-number { font-size: 4.3rem; } }
   </style>
 </head>
 <body>
 <main>
-  <span class="mode">{{ 'Simulation · no GPIO outputs' if simulated else 'Raspberry Pi · motor A' }}</span>
-  <h1>DC motor control</h1>
-  <p>Choose a speed, then select a direction.</p>
-  <section class="status" aria-live="polite">
-    <strong id="state">Connecting…</strong>
-    <span id="reason">Reading motor status.</span>
-  </section>
-  <label for="speed">PWM duty cycle: <output id="speed-label">30</output>%</label>
-  <input id="speed" type="range" min="0" max="100" step="1" value="30">
-  <p class="hint">This sets motor power; actual RPM depends on the motor and load. Move the slider while running to adjust.</p>
-  <div class="buttons">
-    <button class="run" id="forward" disabled>Forward</button>
-    <button class="run" id="reverse" disabled>Reverse</button>
+  <header>
+    <span class="tag">{{ 'SIMULATION · NO GPIO OUTPUTS' if simulated else 'RASPBERRY PI · TWO MOTORS' }}</span>
+    <h1>Robot drive control</h1>
+    <p class="muted">Forward drive with differential steering. Both wheels stay facing forward.</p>
+  </header>
+  <div class="layout">
+    <section class="card" aria-labelledby="controls-title">
+      <div class="eyebrow">Command preview</div>
+      <h2 id="controls-title">Speed &amp; steering</h2>
+      <div class="virtual">
+        <div class="eyebrow">Virtual speed</div>
+        <output id="virtual-speed" class="virtual-number" for="speed">0</output><span class="unit">km/h</span>
+        <p class="hint">Display scale only: 1% = 1 virtual km/h.<br>Actual vehicle speed is not measured.</p>
+      </div>
+      <div class="control">
+        <div class="label-row"><label for="speed">Speed (0–100% PWM)</label><output id="speed-label" for="speed">0%</output></div>
+        <input id="speed" type="range" min="0" max="100" step="1" value="0" aria-describedby="speed-help">
+        <div class="ends"><span>0 · stop</span><span>100 · maximum command</span></div>
+        <p id="speed-help" class="hint">While running, adjustments apply live. At 0%, drive stops; press Start to run again.</p>
+      </div>
+      <div class="control">
+        <div class="label-row"><label for="steering">Steering</label><output id="steering-label" for="steering">Straight</output></div>
+        <input id="steering" type="range" min="-100" max="100" step="1" value="0" aria-describedby="steering-help">
+        <div class="ends"><span>Left 100%</span><span>Straight</span><span>Right 100%</span></div>
+        <p id="steering-help" class="hint">Slows the inside wheel. At full steering the inside motor receives no drive and can coast. Neither motor reverses.</p>
+      </div>
+      <div class="preview"><span id="preview-pwm">Preview: left 0% · right 0% PWM</span><br><span id="preview-mode">Choose a speed, then press Start. Slider changes alone do not start the robot.</span></div>
+      <div class="actions"><button id="start" disabled>Start drive</button><button id="stop">Stop / reset</button></div>
+      <p id="error" role="alert"></p>
+    </section>
+    <section class="card" aria-labelledby="applied-title">
+      <div class="eyebrow">Confirmed by the controller</div>
+      <h2 id="applied-title">Applied motor output</h2>
+      <div class="status" aria-live="polite"><strong id="state">Connecting…</strong><span id="reason">Reading controller status.</span></div>
+      <svg class="robot" viewBox="0 0 480 330" role="img" aria-labelledby="robot-title robot-description">
+        <title id="robot-title">Commanded turn illustration</title>
+        <desc id="robot-description">Top view of a two-wheel robot. The arrow illustrates the confirmed steering command; it does not measure position or turning radius.</desc>
+        <defs><marker id="arrowhead" markerWidth="9" markerHeight="9" refX="6" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8" fill="none" stroke="#245dcc" stroke-width="2"/></marker></defs>
+        <path d="M40 300 H440 M240 25 V308" fill="none" stroke="#e6edf4" stroke-width="1.5" stroke-dasharray="6 7"/>
+        <path id="turn-path" d="M240 143 Q240 93 240 42" fill="none" stroke="#245dcc" stroke-width="6" stroke-linecap="round" marker-end="url(#arrowhead)" visibility="hidden"/>
+        <rect x="160" y="145" width="160" height="135" rx="26" fill="#e9f0fb" stroke="#7594bc" stroke-width="2.5"/>
+        <rect id="left-wheel" x="130" y="171" width="25" height="79" rx="9" fill="#8799aa"/>
+        <rect id="right-wheel" x="325" y="171" width="25" height="79" rx="9" fill="#8799aa"/>
+        <path d="M240 233 V186 M228 198 L240 184 L252 198" fill="none" stroke="#7594bc" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+        <text x="110" y="284" text-anchor="middle" class="wheel-label">Left</text><text x="370" y="284" text-anchor="middle" class="wheel-label">Right</text>
+      </svg>
+      <p class="illustration-label">Commanded turn (illustration): <strong id="applied-turn">Unknown</strong></p>
+      <div class="pwm-grid">
+        <div><span>Left motor · A</span><output id="left-value" class="pwm-value">—</output><progress id="left-bar" max="100" value="0" aria-label="Confirmed left motor PWM"></progress></div>
+        <div><span>Right motor · B</span><output id="right-value" class="pwm-value">—</output><progress id="right-bar" max="100" value="0" aria-label="Confirmed right motor PWM"></progress></div>
+      </div>
+      <p class="hint">PWM is the electrical command, not measured wheel motion. No encoders are connected. The wheels may coast after drive is switched off.</p>
+    </section>
   </div>
-  <button id="stop">Stop / reset</button>
-  <p id="error" role="alert"></p>
-  <p class="hint">Press Stop and wait until the shaft is still before changing direction. Stop removes drive; the motor can coast.</p>
-  <p class="hint">Keep this page visible while running. Changing tabs requests a stop. If contact is lost, the server disables drive after about 2 seconds. Keep a physical motor power switch within reach.</p>
+  <p class="hint safety">Keep this page visible while driving. Hiding or closing it requests Stop; loss of contact disables drive after about 2 seconds while the server is healthy. Keep a physical motor power cut-off within reach. If either motor fails to turn, stop promptly.</p>
 </main>
-<script>
-  const $ = id => document.getElementById(id);
-  let token = null, direction = "stopped", state = null;
-  let busy = false, heartbeatBusy = false, generation = 0, pendingStops = 0;
-  const headers = {"Content-Type": "application/json", "X-Motor-Control": "1"};
-
-  async function api(path, data) {
-    const abort = new AbortController();
-    const timer = setTimeout(() => abort.abort(), 1200);
-    try {
-      const options = {cache: "no-store", signal: abort.signal};
-      if (data !== undefined) Object.assign(options, {method: "POST", headers, body: JSON.stringify(data)});
-      const response = await fetch(path, options);
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "Request failed.");
-      return result;
-    } finally { clearTimeout(timer); }
-  }
-
-  function paint(next) {
-    state = next;
-    direction = next.direction;
-    $("state").textContent = next.fault ? "GPIO fault — disconnect motor power" :
-      direction === "stopped" ? "Drive off" : `${direction === "forward" ? "Forward" : "Reverse"} · ${next.speed}% PWM`;
-    $("reason").textContent = next.reason;
-    if (direction === "stopped") token = null;
-    buttons();
-  }
-
-  function buttons() {
-    for (const name of ["forward", "reverse"]) {
-      $(name).disabled = busy || pendingStops > 0 || !state || state.fault || state.requires_stop ||
-        (direction !== "stopped" && (!token || name !== direction));
-    }
-    $("speed").disabled = busy || pendingStops > 0 || !state || state.fault ||
-      (direction !== "stopped" && !token);
-  }
-
-  function lost(error) {
-    token = null;
-    state = null;
-    $("state").textContent = "Control disconnected";
-    $("reason").textContent = "Heartbeat stopped. Use the power switch if the motor does not coast to a stop.";
-    $("error").textContent = error.message || "Connection lost.";
-    buttons();
-  }
-
-  async function run(name) {
-    if (busy || pendingStops > 0 || document.hidden) return;
-    busy = true;
-    const revision = ++generation;
-    buttons();
-    try {
-      const next = await api("/api/run", {direction: name, speed: Number($("speed").value), token});
-      // A Stop or hidden-page event supersedes any in-flight run response.
-      if (revision !== generation || document.hidden) {
-        await api("/api/stop", {});
-        return;
-      }
-      token = next.token || null;
-      paint(next);
-      $("error").textContent = "";
-    } catch (error) {
-      lost(error);
-      // A timed-out request might have reached the server; disable its output.
-      try { await api("/api/stop", {}); } catch (_) {}
-    } finally { busy = false; buttons(); }
-  }
-
-  async function stop() {
-    const revision = ++generation;
-    pendingStops++;
-    token = null;
-    buttons();
-    try {
-      const next = await api("/api/stop", {});
-      if (revision === generation) {
-        paint(next);
-        $("error").textContent = "";
-      }
-    } catch (error) {
-      if (revision === generation) lost(error);
-    } finally { pendingStops--; buttons(); }
-  }
-
-  $("forward").onclick = () => run("forward");
-  $("reverse").onclick = () => run("reverse");
-  $("stop").onclick = stop;
-  $("speed").oninput = () => { $("speed-label").value = $("speed").value; };
-  $("speed").onchange = () => { if (token) run(direction); };
-
-  setInterval(async () => {
-    if (!token || document.hidden || heartbeatBusy || busy || pendingStops > 0) return;
-    heartbeatBusy = true;
-    const current = token, revision = generation;
-    try {
-      const next = await api("/api/heartbeat", {token: current});
-      if (token === current && revision === generation) paint(next);
-    } catch (error) { if (token === current && revision === generation) lost(error); }
-    finally { heartbeatBusy = false; }
-  }, 300);
-
-  async function readStatus() {
-    if (token || busy || pendingStops > 0) return;
-    const revision = generation;
-    try {
-      const next = await api("/api/status");
-      if (revision === generation && !busy && !token && pendingStops === 0) paint(next);
-    } catch (error) {
-      if (revision === generation && !busy && !token && pendingStops === 0) lost(error);
-    }
-  }
-  setInterval(readStatus, 1000);
-  readStatus();
-
-  function leaving() {
-    if (!token && !busy) return;
-    generation++;
-    token = null;
-    buttons();
-    fetch("/api/stop", {method: "POST", headers, body: "{}", keepalive: true}).catch(() => {});
-  }
-  document.addEventListener("visibilitychange", () => { if (document.hidden) leaving(); });
-  window.addEventListener("pagehide", leaving);
-</script>
+<script type="module" src="{{ url_for('static', filename='control.mjs') }}"></script>
 </body>
 </html>

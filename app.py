@@ -69,7 +69,7 @@ def create_app(controller):
     @app.post("/api/run")
     def run():
         data = body()
-        return jsonify(controller.run(data.get("direction"), data.get("speed"), data.get("token")))
+        return jsonify(controller.run(data.get("speed"), data.get("steering"), data.get("token")))
 
     @app.post("/api/heartbeat")
     def heartbeat():
@@ -84,7 +84,7 @@ def create_app(controller):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="LAN controller for one L298N DC motor")
+    parser = argparse.ArgumentParser(description="LAN speed and steering controller for two L298N DC motors")
     parser.add_argument("--simulate", action="store_true", help="no GPIO; test the web page on any computer")
     parser.add_argument("--host", default="0.0.0.0", help="listen address (default: all interfaces)")
     parser.add_argument("--port", type=int, default=8000)

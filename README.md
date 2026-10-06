@@ -1,19 +1,77 @@
-# Raspberry Pi DC motor controller
+# Raspberry Pi two-motor speed and steering controller
 
-Run one small 12 V rated brushed DC motor through an L298N module, with forward, reverse,
-stop and PWM speed control from a browser on the same local network.
+Run two small 12 V rated brushed DC motors through one L298N module, with a
+**speed slider** and a **left/right steering slider** in a browser on the same
+local network. Both wheels drive forward; turning reduces the inside motor's
+PWM duty cycle. There is no reverse or counter-rotating spin mode.
+
+The page shows the requested settings, each motor's applied PWM command, and
+an illustration of the commanded turn. The requested **0-100 km/h display is
+a virtual scale**: 1% on the speed slider is displayed as 1 virtual km/h.
+It is not measured or estimated physical vehicle speed. There are no wheel
+encoders in this project.
 
 This reference wiring assumes a **Raspberry Pi 3 or 4 with a 40-pin header**,
 a common L298N module with flyback diodes, and a protected **3S Li-ion pack**
 using ordinary 4.2 V full-charge cells. The Pi model, motor rated voltage and
 **stall current**, buck rating, and exact L298N module must be checked before
 connecting power. A motor's no-load current is not enough to size its driver.
+A standard toy wheel does not identify its motor's voltage rating: do not
+connect a 3-6 V toy motor to this 12 V motor-supply design.
+
+## How the two sliders work
+
+1. **Speed: 0-100%.** Choose the forward PWM command. Before starting, changing
+   the sliders only changes the requested settings. Press Start to enable
+   drive; subsequent slider movements update the motors while running.
+2. **Steering: -100 to +100.** Centre is straight. Left is negative and reduces
+   the left motor's PWM; right is positive and reduces the right motor's PWM.
+   Further from centre gives a larger difference between the motors.
+3. **Stop / reset** disables both motors. Setting speed to zero also ends the
+   run. Choose a nonzero speed and press Start again to resume; restoring a
+   network connection does not resume a previous run.
+
+Example with speed set to 60% (displayed as **60 virtual km/h**):
+
+| Steering setting | Left motor PWM | Right motor PWM | Intended motion |
+| --- | --- | --- | --- |
+| Centre, 0% | 60% | 60% | Straight |
+| Left, 25% | 45% | 60% | Gentle left |
+| Left, 50% | 30% | 60% | Sharper left |
+| Left, 100% | 0% | 60% | Strongest left command |
+| Right, 50% | 60% | 30% | Sharper right |
+| Right, 100% | 60% | 0% | Strongest right command |
+
+The mixer uses `t = speed` and `s = steering / 100`:
+
+```text
+left_pwm  = t * (1 + min(s, 0))
+right_pwm = t * (1 - max(s, 0))
+```
+
+Both commands remain between 0 and 100%. The outside motor stays at the speed
+slider's duty cycle; the inside motor receives less drive. The speed slider
+does not hold the robot's average ground speed constant during a turn.
+At maximum steering the inside motor is unpowered and can coast, rather than
+being locked in place.
+
+This is differential steering: the wheels do not rotate to a car-like steering
+angle. A steering setting of 50% does not mean a 50-degree heading or wheel
+angle. The path illustration shows the intended turn, not tracked movement.
+Load, battery voltage, wheel slip and motor mismatch affect the actual path;
+equal PWM does not guarantee equal wheel RPM. See [differential-drive kinematics](https://docs.wpilib.org/en/stable/docs/software/kinematics-and-odometry/differential-drive-kinematics.html).
+
+To add physical speed measurement later, use wheel encoders and known wheel
+circumference; distance per wheel revolution times revolutions per second
+gives wheel speed. Wheel spacing is also needed to infer turning from the two
+wheel speeds. An IMU can help measure actual heading changes. None of those
+measurements is fabricated by the virtual km/h display.
 
 ## Connection diagram
 
 Open [the full wiring diagram](docs/wiring.svg) in a browser to zoom or print.
 
-![Battery, buck converter, Raspberry Pi, L298N and motor wiring](docs/wiring.svg)
+![Battery, buck converter, Raspberry Pi, L298N and two-motor wiring](docs/wiring.svg)
 
 The battery feeds two parallel branches. The motor supply goes directly to the
 driver; the buck supplies the Pi and the driver's logic.
@@ -22,21 +80,25 @@ driver; the buck supplies the Pi and the driver's logic.
 flowchart LR
     PACK["Protected 3S Li-ion pack\n11.1 V nominal; 12.6 V full"] --> FUSE["Fuse + master switch"]
     FUSE --> CUT["Motor power cut-off"]
-    CUT -->|"+12V / Vs terminal"| DRIVER["L298N module\nRemove 5V-EN and ENA jumpers"]
+    CUT -->|"+12V / Vs terminal"| DRIVER["L298N module\nRemove 5V-EN, ENA and ENB jumpers"]
     FUSE -->|"IN+"| BUCK["Buck converter\nAdjust output to 5.1 V"]
     BUCK -->|"OUT+ to physical pin 2: 5V"| PI["Raspberry Pi 3 / 4"]
     BUCK -->|"OUT+ to 5V logic terminal"| DRIVER
     PI -->|"BCM17 / pin 11 to IN1"| DRIVER
     PI -->|"BCM27 / pin 13 to IN2"| DRIVER
     PI -->|"BCM18 / pin 12 to ENA"| DRIVER
-    DRIVER -->|"OUT1 and OUT2"| MOTOR["Brushed DC motor"]
+    PI -->|"BCM23 / pin 16 to IN3"| DRIVER
+    PI -->|"BCM24 / pin 18 to IN4"| DRIVER
+    PI -->|"BCM13 / pin 33 to ENB"| DRIVER
+    DRIVER -->|"OUT1 and OUT2"| LEFT["Left motor"]
+    DRIVER -->|"OUT3 and OUT4"| RIGHT["Right motor"]
     GND["Common GND: pack P-, buck IN-/OUT-,\nL298N GND, Pi physical pin 6"]
     GND --- PI
     GND --- DRIVER
     GND --- BUCK
 ```
 
-The SVG includes the complete return connections and the ENA pull-down resistor.
+The SVG includes the return connections and separate ENA/ENB pull-down resistors.
 These are module-terminal diagrams, not a schematic for a bare L298 chip.
 
 ### Power connections
@@ -55,7 +117,8 @@ module's labels; their physical order differs between boards.
 | Buck OUT+ | L298N `5V` logic terminal, **with 5V-EN jumper removed** |
 | Pi physical pin 6, GND | Common ground point |
 | L298N GND | Common ground point, with its own motor-current return wire |
-| L298N OUT1 and OUT2 | The two motor leads |
+| L298N OUT1 and OUT2 | Left motor's two leads |
+| L298N OUT3 and OUT4 | Right motor's two leads |
 
 Use the BMS-protected **pack output**, not an individual cell tap or raw cell
 negative that bypasses the BMS. Follow the pack manufacturer's charging-port
@@ -72,16 +135,22 @@ different: **physical pin 2 is a 5V power pin; BCM GPIO2 is not**.
 
 | Pi BCM number | Physical header pin | L298N connection | Purpose |
 | --- | --- | --- | --- |
-| GPIO17 | 11 | IN1 | Direction |
-| GPIO27 | 13 | IN2 | Direction |
-| GPIO18 | 12 | ENA | PWM speed / enable |
+| GPIO17 | 11 | IN1 | Left direction input 1 |
+| GPIO27 | 13 | IN2 | Left direction input 2 |
+| GPIO18 | 12 | ENA | Left PWM speed / enable |
+| GPIO23 | 16 | IN3 | Right direction input 1 |
+| GPIO24 | 18 | IN4 | Right direction input 2 |
+| GPIO13 | 33 | ENB | Right PWM speed / enable |
 | GND | 6 | GND | Shared signal reference |
 
-Fit a **10 kOhm resistor between ENA and GND**, at the driver. It holds the
-bridge disabled while the Pi pins are inputs during startup. Remove the
-**ENA jumper** before connecting GPIO18; leaving it fitted can connect the Pi
-signal to the module's 5V rail. For the unused second channel, remove its ENB
-jumper and connect ENB to GND; leave OUT3 and OUT4 disconnected.
+Fit **two separate 10 kOhm resistors**, one between ENA and GND and the other
+between ENB and GND, at the driver. They hold both bridges disabled during
+startup. Remove the **ENA and ENB jumpers** before connecting their Pi signals;
+leaving them fitted can connect the Pi signal pins to the module's 5V rail.
+
+**If upgrading the earlier one-motor wiring, remove the direct ENB-to-GND
+wire.** ENB now connects to GPIO13 and has a 10 kOhm pull-down to GND; it must
+not be directly shorted to GND.
 
 Also remove the separate **5V-EN regulator jumper** before connecting external
 5V to the module. This design uses the buck as the only 5V source. Never use
@@ -90,9 +159,15 @@ jumper functions against your actual board; the chip datasheet alone does
 not define module jumpers. See the [SunFounder module documentation](https://docs.sunfounder.com/projects/sf-components/en/latest/component_l298n_module.html).
 
 The L298 accepts a logic HIGH from 2.3 V, so the Pi's 3.3 V outputs can drive
-IN1, IN2 and ENA directly. Keep 5V and battery voltage off the Pi's signal pins.
-The motor connects **between OUT1 and OUT2**, never from one output to ground.
+all four direction inputs and both enable inputs directly. Keep 5V and battery
+voltage off the Pi's signal pins. Each motor connects **between its two bridge
+outputs**, never from an output to ground.
 See the [ST L298 datasheet](https://www.st.com/resource/en/datasheet/l298.pdf).
+
+Wire each motor so IN1 HIGH / IN2 LOW and IN3 HIGH / IN4 LOW move the robot
+forward. Since the left and right motors usually face opposite directions,
+their wire colours need not match at OUT1 and OUT3. With power disconnected,
+swap the two leads of any motor that drives its wheel backwards.
 
 ### Supply and motor limits
 
@@ -112,8 +187,9 @@ See the [ST L298 datasheet](https://www.st.com/resource/en/datasheet/l298.pdf).
   Pi 3/4 design. See [Raspberry Pi power requirements](https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#power-supply).
 - **Driver current:** the L298's 2 A DC figure per bridge is a chip maximum,
   not a guarantee that a small module can continuously deliver that current.
-  Check motor stall/startup current, module cooling, pack/BMS current and fuse
-  ratings. Do not select a fuse value until these ratings are known.
+  Check each motor's stall/startup current and the combined module heating.
+  Pack/BMS, wiring and fuse ratings must cover both motors plus the Pi branch.
+  Do not select a fuse value until these ratings are known.
 - **Voltage loss:** the L298 loses several volts across its output transistors
   under load, so a 12 V input does not give the motor a full 12 V. That loss
   also creates heat. PWM percentage controls duty cycle, not measured RPM;
@@ -124,7 +200,7 @@ See the [ST L298 datasheet](https://www.st.com/resource/en/datasheet/l298.pdf).
   or twisted; a 100 nF ceramic capacitor across a brushed motor's terminals
   is a common noise-suppression measure. Do not add a single diode across a
   motor that will reverse polarity.
-- **Stopping:** ENA LOW removes drive and the shaft coasts. The software
+- **Stopping:** ENA and ENB LOW remove drive and the wheels coast. The software
   watchdog is not a physical emergency stop and cannot guarantee a stop if
   the OS or process freezes. Use the accessible motor power cut-off switch.
   Open it and select Stop before restoring motor power, so an old command
@@ -168,12 +244,11 @@ only from the trusted local network. This demonstration has **no login**:
 anyone with network access to the Pi can control the motor. Do not forward
 the port to the public internet.
 
-Choose a speed and Forward or Reverse. Stop before changing direction and
-wait until the shaft is stationary. Keep the controlling page visible:
+Choose speed and steering, then press Start. Keep the controlling page visible:
 it refreshes a short command lease; loss of contact disables drive after
 approximately 2 seconds while the server is healthy. Closing or hiding the
 page also attempts an immediate Stop. Restoring a connection does not restart
-the motor automatically. After a timeout, press **Stop / reset** before
+the motors automatically. After a timeout, press **Stop / reset** before
 starting again.
 
 ## Test without a Raspberry Pi
@@ -199,21 +274,30 @@ Run the automated controller/API tests from the project directory:
 python -m unittest discover -s tests -v
 ```
 
+For the browser controller's request-ordering and slider tests, use Node.js
+if installed (Node is not needed to run the Pi server):
+
+```bash
+node tests/ui_control.mjs
+```
+
 Simulation checks software behavior only; it cannot verify wiring, supply
-stability, motor current, cooling, or actual motor direction.
+stability, motor current, cooling, or actual wheel motion. Both simulation and
+hardware mode label the km/h scale as virtual, because neither reads encoders.
 
 ## First powered test
 
 1. Leave the motor power cut-off open. With the Pi disconnected, adjust the
    buck and measure 5.1 V with correct polarity. Power off before connecting
-   the Pi and the module's logic supply; check the two jumper removals.
+   the Pi and the module's logic supply; check all three jumper removals.
 2. Power the Pi, start the app, and confirm the page reports stopped. Secure
-   the motor with its shaft/load clear. Close the motor power switch.
-3. Use a short moderate-speed test. Stop promptly if it fails to turn, the
-   driver heats rapidly, or the Pi resets. Do not leave a stalled motor on.
-4. Select Stop and wait for the shaft to stop before Reverse. If the named
-   direction is opposite to what you want, disconnect power and swap the
-   motor's two leads.
+   the chassis with both wheels lifted clear. Close the motor power switch.
+3. Centre the steering slider and use a short moderate-speed test. Stop if
+   either wheel fails to turn, the driver heats rapidly, or the Pi resets.
+   Do not leave a stalled motor on.
+4. Confirm both wheels drive forward. If one is backwards, stop, disconnect
+   power and swap that motor's two leads. Test left steering: left PWM must
+   decrease while right PWM stays at the speed setting. Test right similarly.
 5. Run briefly and close the browser or disconnect its Wi-Fi. Verify the
    drive is removed within about 2 seconds and does not resume on reconnect.
 6. Stop, open the motor cut-off, and shut down the Pi with `sudo poweroff`
@@ -222,8 +306,9 @@ stability, motor current, cooling, or actual motor direction.
 ## Files
 
 - `app.py`: HTTP endpoints, server startup, GPIO/simulation selection.
-- `motor_controller.py`: motor drive, ownership and watchdog behavior.
-- `templates/index.html`: browser controls.
+- `motor_controller.py`: two-motor mixing, GPIO, ownership and watchdog behavior.
+- `templates/index.html`: two sliders, motor outputs and commanded-turn illustration.
+- `static/`: browser interaction code.
 - `docs/wiring.svg`: printable connection diagram.
 - `tests/`: automated software checks using simulated hardware.
 

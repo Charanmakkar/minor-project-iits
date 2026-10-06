@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1680" height="1230" viewBox="0 0 1680 1230" role="img" aria-labelledby="title desc">
-  <title id="title">Raspberry Pi and L298N: one DC motor with a 3S lithium-ion supply</title>
-  <desc id="desc">Terminal-level wiring diagram. A fused, switched 3S battery supplies an external buck converter and the L298N motor supply. The buck provides 5.1 volts to Raspberry Pi physical pin 2 and the L298N logic supply. All ground symbols are one connected common ground. Raspberry Pi GPIO17, GPIO27 and GPIO18 connect to IN1, IN2 and ENA respectively. Remove the L298N 5V-EN and ENA jumpers. Fit a 10 kiloohm ENA pull-down. The motor connects only between OUT1 and OUT2.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1200" viewBox="0 0 1920 1200" role="img" aria-labelledby="title desc">
+  <title id="title">Raspberry Pi and L298N: two-motor differential drive with a 3S lithium-ion supply</title>
+  <desc id="desc">Terminal wiring for Raspberry Pi 3 or 4 and two small compatible DC motors. A fused, switched protected 3S battery supplies the L298N motor supply and a buck converter set to 5.1 volts. The buck supplies Pi physical pin 2 and L298N 5V logic. All ground symbols are one common connected net. Left motor: GPIO17 pin11 to IN1, GPIO27 pin13 to IN2, GPIO18 pin12 to ENA; motor across OUT1 and OUT2. Right motor: GPIO23 pin16 to IN3, GPIO24 pin18 to IN4, GPIO13 pin33 to ENB; motor across OUT3 and OUT4. Both enable signals have separate 10 kiloohm resistors to ground. Remove 5V-EN, ENA and ENB jumpers, and remove any previous direct ENB-to-ground wire.</desc>
   <defs>
     <style>
       text { font-family: Arial, Helvetica, sans-serif; fill: #172a3a; }
@@ -18,20 +18,22 @@
       .battery { stroke: #c34235; }
       .five { stroke: #db8709; }
       .ground { stroke: #344b5c; }
-      .signal { stroke: #187a9e; }
-      .motor { stroke: #7653a4; }
+      .signalA { stroke: #187a9e; }
+      .signalB { stroke: #147c66; }
+      .motorA { stroke: #7653a4; }
+      .motorB { stroke: #a45386; }
     </style>
     <g id="gnd" fill="none" stroke="#344b5c" stroke-width="3" stroke-linecap="round">
       <path d="M0 0 V10 M-16 10 H16 M-10 17 H10 M-4 24 H4"/>
     </g>
   </defs>
 
-  <rect width="1680" height="1230" fill="#f5f8fb"/>
-  <text x="50" y="55" class="title">Raspberry Pi + L298N: one DC motor</text>
+  <rect width="1920" height="1200" fill="#f5f8fb"/>
+  <text x="50" y="55" class="title">Raspberry Pi + L298N: two-motor differential drive</text>
   <text x="50" y="88" class="subtitle">Baseline: Raspberry Pi 3 / 4 • Module terminal connections • 40-pin header • BCM GPIO numbering in Python</text>
-  <path d="M50 112 H1630" stroke="#d6e0e8" stroke-width="2"/>
+  <path d="M50 112 H1870" stroke="#d6e0e8" stroke-width="2"/>
 
-  <!-- Battery and the fused, switched motor-voltage distribution. -->
+  <!-- Protected battery and independently switched motor power. -->
   <rect x="60" y="155" width="240" height="140" rx="12" class="box"/>
   <text x="80" y="184" class="heading">3S Li-ion pack</text>
   <text x="80" y="215" class="small">BMS-protected output</text>
@@ -41,7 +43,7 @@
   <text x="269" y="256" class="tiny bold">P−</text>
   <circle cx="300" cy="200" r="6" class="terminal"/>
   <circle cx="300" cy="250" r="6" class="terminal"/>
-  <path d="M306 200 H335 M395 200 H455 M515 200 H735 M795 200 H995 V420 H1030" class="wire battery"/>
+  <path d="M306 200 H335 M395 200 H455 M515 200 H735 M795 200 H995 V385 H1080" class="wire battery"/>
   <rect x="335" y="188" width="60" height="24" rx="3" fill="#fff2ee" stroke="#c34235" stroke-width="3"/>
   <text x="365" y="168" text-anchor="middle" class="small bold">Fuse</text>
   <path d="M455 200 L508 176" class="wire battery"/>
@@ -53,14 +55,19 @@
   <circle cx="795" cy="200" r="4" fill="#c34235"/>
   <text x="765" y="147" text-anchor="middle" class="small bold">Motor power cut-off</text>
   <text x="765" y="234" text-anchor="middle" class="tiny muted">Leaves Pi powered for shutdown</text>
-  <text x="1008" y="276" class="small bold" fill="#c34235">Battery voltage</text>
-  <text x="1008" y="301" class="tiny muted">“12V” / VS terminal</text>
+  <text x="1009" y="271" class="small bold">Battery voltage</text>
   <path d="M610 200 V280 H360 V400 H420" class="wire battery"/>
   <circle cx="610" cy="200" r="6" fill="#c34235"/>
   <path d="M306 250 H328 V294" class="wire ground"/>
   <use href="#gnd" x="328" y="294"/>
 
-  <!-- Buck converter, with input and output grounds explicitly common. -->
+  <rect x="1210" y="142" width="660" height="106" rx="9" fill="#fff0e9" stroke="#d57f5e"/>
+  <text x="1230" y="168" class="small bold">UPDATING THE ONE-MOTOR WIRING?</text>
+  <text x="1230" y="193" class="small bold">Remove the previous direct ENB-to-GND wire.</text>
+  <text x="1230" y="217" class="small">ENB now connects to GPIO13 and its 10 kΩ pull-down resistor.</text>
+  <text x="1230" y="239" class="tiny">Do not short either enable signal directly to ground.</text>
+
+  <!-- Buck input and output grounds share the common return. -->
   <rect x="420" y="330" width="340" height="190" rx="12" class="box"/>
   <text x="590" y="365" text-anchor="middle" class="heading">External buck converter</text>
   <text x="438" y="407" class="label bold">IN+</text>
@@ -77,108 +84,128 @@
   <use href="#gnd" x="382" y="489"/>
   <path d="M766 470 H792 V489" class="wire ground"/>
   <use href="#gnd" x="792" y="489"/>
+  <path d="M766 400 H840 V550 H300 V615 M840 440 H1080" class="wire five"/>
+  <circle cx="840" cy="440" r="6" fill="#db8709"/>
+  <text x="570" y="539" text-anchor="middle" class="small bold">5.1 V regulated: Pi + driver logic</text>
+  <text x="860" y="425" class="tiny bold">5 V logic supply</text>
+  <text x="318" y="594" class="small bold">Physical pin 2: +5 V IN</text>
 
-  <!-- Regulated 5V rail supplies both the Pi and the driver's logic input. -->
-  <path d="M766 400 H840 V560 H300 V650 M840 485 H1030" class="wire five"/>
-  <circle cx="840" cy="485" r="6" fill="#db8709"/>
-  <text x="571" y="545" text-anchor="middle" class="small bold">5.1 V regulated: Pi + driver logic</text>
-  <text x="859" y="466" class="tiny bold">5 V logic supply</text>
-  <text x="318" y="625" class="small bold">Physical pin 2: +5 V IN</text>
+  <!-- Dual H-bridge driver module with both enable jumpers removed. -->
+  <rect x="1080" y="285" width="460" height="690" rx="12" class="box"/>
+  <text x="1310" y="321" text-anchor="middle" class="heading">L298N driver module</text>
+  <text x="1310" y="348" text-anchor="middle" class="tiny muted">Common module with onboard 5 V regulator</text>
+  <path d="M1100 360 H1520" stroke="#d6e0e8" stroke-width="2"/>
+  <circle cx="1080" cy="385" r="6" class="terminal"/>
+  <circle cx="1080" cy="440" r="6" class="terminal"/>
+  <text x="1100" y="392" class="label bold">+12V / VS</text>
+  <text x="1100" y="447" class="label bold">5V — external logic INPUT</text>
+  <rect x="1100" y="467" width="420" height="64" rx="7" fill="#fff0d9" stroke="#dd9b30"/>
+  <text x="1114" y="492" class="small bold">REMOVE 5V-EN regulator jumper</text>
+  <text x="1114" y="516" class="small bold">REMOVE both ENA and ENB speed jumpers</text>
+  <text x="1100" y="562" class="tiny muted">Confirm your module's terminal labels.</text>
+  <text x="1100" y="616" class="small bold">LEFT MOTOR / CHANNEL A</text>
+  <circle cx="1080" cy="660" r="6" class="terminal"/>
+  <circle cx="1080" cy="705" r="6" class="terminal"/>
+  <circle cx="1080" cy="750" r="6" class="terminal"/>
+  <text x="1100" y="667" class="label bold">IN1</text>
+  <text x="1100" y="712" class="label bold">IN2</text>
+  <text x="1100" y="757" class="label bold">ENA — PWM</text>
+  <path d="M1100 766 H1520" stroke="#d6e0e8" stroke-width="2"/>
+  <text x="1100" y="812" class="small bold">RIGHT MOTOR / CHANNEL B</text>
+  <circle cx="1080" cy="835" r="6" class="terminal"/>
+  <circle cx="1080" cy="880" r="6" class="terminal"/>
+  <circle cx="1080" cy="925" r="6" class="terminal"/>
+  <text x="1100" y="842" class="label bold">IN3</text>
+  <text x="1100" y="887" class="label bold">IN4</text>
+  <text x="1100" y="932" class="label bold">ENB — PWM</text>
+  <circle cx="1540" cy="580" r="6" class="terminal"/>
+  <circle cx="1540" cy="710" r="6" class="terminal"/>
+  <circle cx="1540" cy="785" r="6" class="terminal"/>
+  <circle cx="1540" cy="915" r="6" class="terminal"/>
+  <text x="1520" y="587" text-anchor="end" class="label bold">OUT1</text>
+  <text x="1520" y="717" text-anchor="end" class="label bold">OUT2</text>
+  <text x="1520" y="779" text-anchor="end" class="label bold">OUT3</text>
+  <text x="1520" y="922" text-anchor="end" class="label bold">OUT4</text>
+  <text x="1310" y="962" text-anchor="middle" class="small bold">GND</text>
+  <circle cx="1310" cy="975" r="6" class="terminal"/>
+  <path d="M1310 981 V990" class="wire ground"/>
+  <use href="#gnd" x="1310" y="990"/>
 
-  <!-- L298N module. The 5V-EN jumper is unrelated to the ENA jumper. -->
-  <rect x="1030" y="330" width="370" height="630" rx="12" class="box"/>
-  <text x="1215" y="363" text-anchor="middle" class="heading">L298N driver module</text>
-  <text x="1215" y="388" text-anchor="middle" class="tiny muted">Common module with onboard 5 V regulator</text>
-  <path d="M1048 399 H1382" stroke="#d6e0e8" stroke-width="2"/>
-  <circle cx="1030" cy="420" r="6" class="terminal"/>
-  <circle cx="1030" cy="485" r="6" class="terminal"/>
-  <text x="1050" y="427" class="label bold">+12V / VS</text>
-  <text x="1050" y="492" class="label bold">5V — external logic INPUT</text>
-  <rect x="1050" y="511" width="330" height="64" rx="7" fill="#fff0d9" stroke="#dd9b30"/>
-  <text x="1064" y="536" class="small bold">REMOVE 5V-EN regulator jumper</text>
-  <text x="1064" y="560" class="small bold">REMOVE ENA speed jumper</text>
-  <text x="1050" y="603" class="tiny muted">Confirm your module's terminal labels.</text>
+  <!-- Left and right motors float between their respective bridge outputs. -->
+  <path d="M1546 580 H1730 V598 M1546 710 H1730 V692" class="wire motorA"/>
+  <circle cx="1730" cy="645" r="47" fill="#f2eef9" stroke="#7653a4" stroke-width="3"/>
+  <text x="1730" y="658" text-anchor="middle" font-size="37" font-weight="700">M</text>
+  <text x="1730" y="522" text-anchor="middle" class="label bold">LEFT drive motor (A)</text>
+  <text x="1730" y="547" text-anchor="middle" class="small muted">Small 12 V compatible DC motor</text>
+  <path d="M1546 785 H1730 V803 M1546 915 H1730 V897" class="wire motorB"/>
+  <circle cx="1730" cy="850" r="47" fill="#faedf5" stroke="#a45386" stroke-width="3"/>
+  <text x="1730" y="863" text-anchor="middle" font-size="37" font-weight="700">M</text>
+  <text x="1730" y="741" text-anchor="middle" class="label bold">RIGHT drive motor (B)</text>
+  <text x="1730" y="766" text-anchor="middle" class="small muted">Small 12 V compatible DC motor</text>
+  <text x="1730" y="962" text-anchor="middle" class="small bold">Neither lead of either motor</text>
+  <text x="1730" y="987" text-anchor="middle" class="small bold">connects to ground.</text>
 
-  <circle cx="1030" cy="700" r="6" class="terminal"/>
-  <circle cx="1030" cy="770" r="6" class="terminal"/>
-  <circle cx="1030" cy="840" r="6" class="terminal"/>
-  <text x="1050" y="707" class="label bold">IN1</text>
-  <text x="1050" y="777" class="label bold">IN2</text>
-  <text x="1050" y="847" class="label bold">ENA</text>
-  <text x="1050" y="870" class="tiny muted">Motor A enable / PWM</text>
+  <!-- GPIO mapping matches the Python BCM pin configuration. -->
+  <rect x="70" y="615" width="720" height="360" rx="12" class="box"/>
+  <circle cx="300" cy="615" r="6" class="terminal"/>
+  <text x="96" y="660" class="heading">Raspberry Pi</text>
+  <text x="96" y="690" class="small muted">40-pin GPIO header</text>
+  <text x="96" y="745" class="small">Power: PHYSICAL pin numbers.</text>
+  <text x="96" y="775" class="small">Signals: BCM GPIO numbers.</text>
+  <text x="96" y="841" class="small bold">GPIO signals are 3.3 V.</text>
+  <text x="96" y="872" class="small bold">Never connect 12 V to the Pi.</text>
+  <text x="770" y="638" text-anchor="end" class="tiny bold">LEFT MOTOR / A</text>
+  <text x="770" y="667" text-anchor="end" class="label bold">BCM17 • physical pin 11</text>
+  <text x="770" y="712" text-anchor="end" class="label bold">BCM27 • physical pin 13</text>
+  <text x="770" y="757" text-anchor="end" class="label bold">BCM18 • physical pin 12</text>
+  <text x="770" y="813" text-anchor="end" class="tiny bold">RIGHT MOTOR / B</text>
+  <text x="770" y="842" text-anchor="end" class="label bold">BCM23 • physical pin 16</text>
+  <text x="770" y="887" text-anchor="end" class="label bold">BCM24 • physical pin 18</text>
+  <text x="770" y="932" text-anchor="end" class="label bold">BCM13 • physical pin 33</text>
+  <circle cx="790" cy="660" r="6" class="terminal"/>
+  <circle cx="790" cy="705" r="6" class="terminal"/>
+  <circle cx="790" cy="750" r="6" class="terminal"/>
+  <circle cx="790" cy="835" r="6" class="terminal"/>
+  <circle cx="790" cy="880" r="6" class="terminal"/>
+  <circle cx="790" cy="925" r="6" class="terminal"/>
+  <path d="M796 660 H1074 M796 705 H1074 M796 750 H1074" class="wire signalA"/>
+  <path d="M796 835 H1074 M796 880 H1074 M796 925 H1074" class="wire signalB"/>
+  <text x="930" y="639" text-anchor="middle" class="tiny muted">3.3 V logic signals</text>
+  <text x="239" y="961" class="small bold">Physical pin 6: GND</text>
+  <circle cx="220" cy="975" r="6" class="terminal"/>
+  <path d="M220 981 V990" class="wire ground"/>
+  <use href="#gnd" x="220" y="990"/>
 
-  <circle cx="1400" cy="630" r="6" class="terminal"/>
-  <circle cx="1400" cy="770" r="6" class="terminal"/>
-  <text x="1380" y="637" text-anchor="end" class="label bold">OUT1</text>
-  <text x="1380" y="777" text-anchor="end" class="label bold">OUT2</text>
-  <text x="1380" y="844" text-anchor="end" class="tiny muted">Unused motor B:</text>
-  <text x="1380" y="867" text-anchor="end" class="tiny muted">remove ENB jumper</text>
-  <text x="1380" y="907" text-anchor="end" class="small bold">ENB</text>
-  <circle cx="1400" cy="900" r="6" class="terminal"/>
-  <path d="M1406 900 H1455 V936" class="wire ground"/>
-  <use href="#gnd" x="1455" y="936"/>
-  <text x="1380" y="936" text-anchor="end" class="tiny muted">Leave OUT3 / OUT4 open</text>
-  <text x="1175" y="948" text-anchor="middle" class="small bold">GND</text>
-  <circle cx="1175" cy="960" r="6" class="terminal"/>
-  <path d="M1175 966 V983" class="wire ground"/>
-  <use href="#gnd" x="1175" y="983"/>
+  <!-- Each enable has its own resistor, not a direct short to ground. -->
+  <circle cx="910" cy="750" r="6" fill="#187a9e"/>
+  <path d="M910 750 V765 M910 795 V805" class="wire ground"/>
+  <rect x="900" y="765" width="20" height="30" rx="2" fill="white" stroke="#344b5c" stroke-width="3"/>
+  <text x="938" y="784" class="small bold">10 kΩ</text>
+  <text x="938" y="808" class="tiny muted">ENA pull-down</text>
+  <use href="#gnd" x="910" y="805"/>
+  <circle cx="910" cy="925" r="6" fill="#147c66"/>
+  <path d="M910 925 V940 M910 970 V980" class="wire ground"/>
+  <rect x="900" y="940" width="20" height="30" rx="2" fill="white" stroke="#344b5c" stroke-width="3"/>
+  <text x="938" y="960" class="small bold">10 kΩ</text>
+  <text x="938" y="984" class="tiny muted">ENB pull-down</text>
+  <use href="#gnd" x="910" y="980"/>
 
-  <!-- Motor is connected across bridge outputs: neither lead is ground. -->
-  <path d="M1406 630 H1540 V648 M1406 770 H1540 V752" class="wire motor"/>
-  <circle cx="1540" cy="700" r="52" fill="#f2eef9" stroke="#7653a4" stroke-width="3"/>
-  <text x="1540" y="714" text-anchor="middle" font-size="40" font-weight="700" fill="#7653a4">M</text>
-  <text x="1505" y="572" text-anchor="middle" class="small bold">12 V brushed DC motor</text>
-  <text x="1522" y="597" text-anchor="middle" class="tiny muted">Check stall current and driver rating</text>
-  <text x="1540" y="808" text-anchor="middle" class="tiny bold">Neither motor lead</text>
-  <text x="1540" y="831" text-anchor="middle" class="tiny bold">connects to ground</text>
+  <rect x="50" y="1027" width="1820" height="48" rx="8" fill="#e6edf3"/>
+  <use href="#gnd" x="81" y="1037"/>
+  <text x="111" y="1058" class="small bold">ALL GROUND SYMBOLS ARE CONNECTED: pack P−, buck IN− / OUT−, Pi pin 6, L298N GND and both 10 kΩ pull-down resistors.</text>
 
-  <!-- Raspberry Pi: power uses physical header pin numbers, not GPIO IDs. -->
-  <rect x="70" y="650" width="720" height="310" rx="12" class="box"/>
-  <circle cx="300" cy="650" r="6" class="terminal"/>
-  <text x="96" y="696" class="heading">Raspberry Pi</text>
-  <text x="96" y="727" class="small muted">40-pin GPIO header</text>
-  <text x="96" y="779" class="small">Power pins use PHYSICAL numbers.</text>
-  <text x="96" y="810" class="small">Signals use BCM GPIO numbers.</text>
-  <text x="96" y="862" class="small bold">GPIO signals are 3.3 V.</text>
-  <text x="96" y="893" class="small bold">Never connect 12 V to the Pi.</text>
-  <text x="770" y="693" text-anchor="end" class="label bold">BCM17 • physical pin 11</text>
-  <text x="770" y="719" text-anchor="end" class="tiny muted">Direction input 1</text>
-  <text x="770" y="763" text-anchor="end" class="label bold">BCM27 • physical pin 13</text>
-  <text x="770" y="789" text-anchor="end" class="tiny muted">Direction input 2</text>
-  <text x="770" y="833" text-anchor="end" class="label bold">BCM18 • physical pin 12</text>
-  <text x="770" y="859" text-anchor="end" class="tiny muted">Speed PWM / enable</text>
-  <circle cx="790" cy="700" r="6" class="terminal"/>
-  <circle cx="790" cy="770" r="6" class="terminal"/>
-  <circle cx="790" cy="840" r="6" class="terminal"/>
-  <path d="M796 700 H1024 M796 770 H1024 M796 840 H1024" class="wire signal"/>
-  <text x="895" y="678" text-anchor="middle" class="tiny muted">3.3 V logic</text>
-  <text x="239" y="945" class="small bold">Physical pin 6: GND</text>
-  <circle cx="220" cy="960" r="6" class="terminal"/>
-  <path d="M220 966 V983" class="wire ground"/>
-  <use href="#gnd" x="220" y="983"/>
-
-  <!-- ENA low at boot: resistor from the enable net to common ground. -->
-  <circle cx="910" cy="840" r="6" fill="#187a9e"/>
-  <path d="M910 840 V875 M910 929 V955" class="wire ground"/>
-  <rect x="900" y="875" width="20" height="54" rx="2" fill="white" stroke="#344b5c" stroke-width="3"/>
-  <text x="936" y="896" class="small bold">10 kΩ</text>
-  <text x="936" y="920" class="tiny muted">pull-down</text>
-  <use href="#gnd" x="910" y="955"/>
-
-  <!-- All identical ground symbols are the same electrical net. -->
-  <rect x="50" y="1029" width="1580" height="49" rx="8" fill="#e6edf3"/>
-  <use href="#gnd" x="81" y="1039"/>
-  <text x="111" y="1060" class="small bold">ALL GROUND SYMBOLS ARE CONNECTED: pack P−, buck IN− / OUT−, Pi pin 6, L298N GND, ENA resistor and ENB.</text>
-
-  <rect x="50" y="1095" width="1580" height="102" rx="8" fill="#fff" stroke="#d6e0e8"/>
-  <text x="70" y="1126" class="small bold">Before connecting the Pi</text>
-  <text x="70" y="1152" class="small">Measure buck output: 5.1 V, correct polarity.</text>
-  <text x="70" y="1178" class="small">Keep USB power disconnected.</text>
-  <path d="M595 1110 V1183 M1125 1110 V1183" stroke="#d6e0e8" stroke-width="2"/>
-  <text x="617" y="1126" class="small bold">The L298N regulator is disabled</text>
-  <text x="617" y="1152" class="small">Remove 5V-EN before supplying its 5V terminal.</text>
-  <text x="617" y="1178" class="small">Do not power the Pi from the L298N regulator.</text>
-  <text x="1147" y="1126" class="small bold">Battery and power sequencing</text>
-  <text x="1147" y="1152" class="small">Use a protected pack and matching 3S charger.</text>
-  <text x="1147" y="1178" class="small">Shut down the Pi before master power off.</text>
+  <rect x="50" y="1090" width="1820" height="92" rx="8" fill="#fff" stroke="#d6e0e8"/>
+  <path d="M650 1103 V1171 M1250 1103 V1171" stroke="#d6e0e8" stroke-width="2"/>
+  <text x="70" y="1113" class="small bold">Before power-on</text>
+  <text x="70" y="1135" class="small">Measure 5.1 V and correct polarity before connecting the Pi.</text>
+  <text x="70" y="1156" class="small">USB power disconnected; L298N 5V-EN regulator disabled.</text>
+  <text x="70" y="1177" class="small">Use a protected 3S pack and matching 3S charger.</text>
+  <text x="672" y="1113" class="small bold">Motor polarity: establish robot-forward</text>
+  <text x="672" y="1135" class="small">Wire A so IN1=HIGH / IN2=LOW drives the robot forward.</text>
+  <text x="672" y="1156" class="small">Wire B so IN3=HIGH / IN4=LOW drives the robot forward.</text>
+  <text x="672" y="1177" class="small">Mirrored motors may need opposite wire-colour order.</text>
+  <text x="1272" y="1113" class="small bold">Size power and driver for both motors</text>
+  <text x="1272" y="1135" class="small">Check each motor's stall current against its L298N bridge.</text>
+  <text x="1272" y="1156" class="small">Pack / BMS / fuse must cover both stalls + the Pi load.</text>
+  <text x="1272" y="1177" class="small">Shut down the Pi before switching master power off.</text>
 </svg>
