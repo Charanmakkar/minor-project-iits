@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DC motor control</title>
+  <style>
+    :root { color-scheme: light; font: 17px/1.5 system-ui, sans-serif; color: #1c2939; background: #eef2f6; }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 32px 16px; }
+    main { max-width: 600px; margin: auto; background: white; padding: 28px; border-radius: 18px; box-shadow: 0 12px 36px #192c4410; }
+    h1 { margin: 0 0 8px; font-size: 1.8rem; }
+    p { margin: 10px 0 20px; }
+    .mode { display: inline-block; border-radius: 5px; background: #e7efff; padding: 3px 10px; font-size: .85rem; }
+    .status { margin: 24px 0; padding: 18px; background: #f1f5f9; border-radius: 10px; }
+    #state { display: block; font-size: 1.35rem; }
+    #reason, .hint { font-size: .88rem; color: #4b5c71; }
+    label { font-weight: 650; }
+    input { display: block; width: 100%; margin: 20px 0 8px; accent-color: #245dcc; }
+    .buttons { display: flex; gap: 12px; margin-top: 22px; }
+    button { border: 0; border-radius: 9px; min-height: 52px; padding: 12px; font: inherit; font-weight: 650; cursor: pointer; }
+    .run { flex: 1; color: white; background: #245dcc; }
+    button:disabled { opacity: .45; cursor: not-allowed; }
+    #stop { width: 100%; background: #b4232c; color: white; margin-top: 12px; }
+    #error { color: #a51b25; min-height: 1.5em; margin-bottom: 0; }
+    .hint:last-child { margin-bottom: 0; }
+  </style>
+</head>
+<body>
+<main>
+  <span class="mode">{{ 'Simulation · no GPIO outputs' if simulated else 'Raspberry Pi · motor A' }}</span>
+  <h1>DC motor control</h1>
+  <p>Choose a speed, then select a direction.</p>
+  <section class="status" aria-live="polite">
+    <strong id="state">Connecting…</strong>
+    <span id="reason">Reading motor status.</span>
+  </section>
+  <label for="speed">PWM duty cycle: <output id="speed-label">30</output>%</label>
+  <input id="speed" type="range" min="0" max="100" step="1" value="30">
+  <p class="hint">This sets motor power; actual RPM depends on the motor and load. Move the slider while running to adjust.</p>
+  <div class="buttons">
+    <button class="run" id="forward" disabled>Forward</button>
+    <button class="run" id="reverse" disabled>Reverse</button>
+  </div>
+  <button id="stop">Stop / reset</button>
+  <p id="error" role="alert"></p>
+  <p class="hint">Press Stop and wait until the shaft is still before changing direction. Stop removes drive; the motor can coast.</p>
+  <p class="hint">Keep this page visible while running. Changing tabs requests a stop. If contact is lost, the server disables drive after about 2 seconds. Keep a physical motor power switch within reach.</p>
+</main>
+<script>
+  const $ = id => document.getElementById(id);
+  let token = null, direction = "stopped", state = null;
+  let busy = false, heartbeatBusy = false, generation = 0, pendingStops = 0;
+  const headers = {"Content-Type": "application/json", "X-Motor-Control": "1"};
+
+  async function api(path, data) {
+    const abort = new AbortController();
+    const timer = setTimeout(() => abort.abort(), 1200);
+    try {
+      const options = {cache: "no-store", signal: abort.signal};
+      if (data !== undefined) Object.assign(options, {method: "POST", headers, body: JSON.stringify(data)});
+      const response = await fetch(path, options);
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Request failed.");
+      return result;
+    } finally { clearTimeout(timer); }
+  }
+
+  function paint(next) {
+    state = next;
+    direction = next.direction;
+    $("state").textContent = next.fault ? "GPIO fault — disconnect motor power" :
+      direction === "stopped" ? "Drive off" : `${direction === "forward" ? "Forward" : "Reverse"} · ${next.speed}% PWM`;
+    $("reason").textContent = next.reason;
+    if (direction === "stopped") token = null;
+    buttons();
+  }
+
+  function buttons() {
+    for (const name of ["forward", "reverse"]) {
+      $(name).disabled = busy || pendingStops > 0 || !state || state.fault || state.requires_stop ||
+        (direction !== "stopped" && (!token || name !== direction));
+    }
+    $("speed").disabled = busy || pendingStops > 0 || !state || state.fault ||
+      (direction !== "stopped" && !token);
+  }
+
+  function lost(error) {
+    token = null;
+    state = null;
+    $("state").textContent = "Control disconnected";
+    $("reason").textContent = "Heartbeat stopped. Use the power switch if the motor does not coast to a stop.";
+    $("error").textContent = error.message || "Connection lost.";
+    buttons();
+  }
+
+  async function run(name) {
+    if (busy || pendingStops > 0 || document.hidden) return;
+    busy = true;
+    const revision = ++generation;
+    buttons();
+    try {
+      const next = await api("/api/run", {direction: name, speed: Number($("speed").value), token});
+      // A Stop or hidden-page event supersedes any in-flight run response.
+      if (revision !== generation || document.hidden) {
+        await api("/api/stop", {});
+        return;
+      }
+      token = next.token || null;
+      paint(next);
+      $("error").textContent = "";
+    } catch (error) {
+      lost(error);
+      // A timed-out request might have reached the server; disable its output.
+      try { await api("/api/stop", {}); } catch (_) {}
+    } finally { busy = false; buttons(); }
+  }
+
+  async function stop() {
+    const revision = ++generation;
+    pendingStops++;
+    token = null;
+    buttons();
+    try {
+      const next = await api("/api/stop", {});
+      if (revision === generation) {
+        paint(next);
+        $("error").textContent = "";
+      }
+    } catch (error) {
+      if (revision === generation) lost(error);
+    } finally { pendingStops--; buttons(); }
+  }
+
+  $("forward").onclick = () => run("forward");
+  $("reverse").onclick = () => run("reverse");
+  $("stop").onclick = stop;
+  $("speed").oninput = () => { $("speed-label").value = $("speed").value; };
+  $("speed").onchange = () => { if (token) run(direction); };
+
+  setInterval(async () => {
+    if (!token || document.hidden || heartbeatBusy || busy || pendingStops > 0) return;
+    heartbeatBusy = true;
+    const current = token, revision = generation;
+    try {
+      const next = await api("/api/heartbeat", {token: current});
+      if (token === current && revision === generation) paint(next);
+    } catch (error) { if (token === current && revision === generation) lost(error); }
+    finally { heartbeatBusy = false; }
+  }, 300);
+
+  async function readStatus() {
+    if (token || busy || pendingStops > 0) return;
+    const revision = generation;
+    try {
+      const next = await api("/api/status");
+      if (revision === generation && !busy && !token && pendingStops === 0) paint(next);
+    } catch (error) {
+      if (revision === generation && !busy && !token && pendingStops === 0) lost(error);
+    }
+  }
+  setInterval(readStatus, 1000);
+  readStatus();
+
+  function leaving() {
+    if (!token && !busy) return;
+    generation++;
+    token = null;
+    buttons();
+    fetch("/api/stop", {method: "POST", headers, body: "{}", keepalive: true}).catch(() => {});
+  }
+  document.addEventListener("visibilitychange", () => { if (document.hidden) leaving(); });
+  window.addEventListener("pagehide", leaving);
+</script>
+</body>
+</html>
